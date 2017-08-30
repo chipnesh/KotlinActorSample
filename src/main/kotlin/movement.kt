@@ -34,10 +34,10 @@ class MoveActor : ActorModel<MoveCommand, EntityPosition> {
             } ?: moveTo(direction, EntityPosition(direction.command.animalName, 0, 0))
 
     private fun moveTo(direction: Direction, old: EntityPosition): EntityPosition = when (direction) {
-        is Direction.Left -> old.copy(name = direction.command.animalName, x = 0, y = -direction.command.steps)
-        is Direction.Right -> old.copy(name = direction.command.animalName, x = 0, y = direction.command.steps)
-        is Direction.Up -> old.copy(name = direction.command.animalName, x = direction.command.steps, y = 0)
-        is Direction.Down -> old.copy(name = direction.command.animalName, x = -direction.command.steps, y = 0)
+        is Direction.Left -> old.copy(name = direction.command.animalName, x = -direction.command.steps, y = 0)
+        is Direction.Right -> old.copy(name = direction.command.animalName, x = direction.command.steps, y = 0)
+        is Direction.Up -> old.copy(name = direction.command.animalName, x = 0, y = direction.command.steps)
+        is Direction.Down -> old.copy(name = direction.command.animalName, x = 0, y = -direction.command.steps)
     }
 }
 
