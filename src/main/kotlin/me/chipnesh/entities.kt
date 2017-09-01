@@ -1,3 +1,7 @@
+package me.chipnesh
+
+import me.chipnesh.behaviours.MoveCommand
+
 data class EntityPosition(val id: String, val x: Int, val y: Int)
 
 sealed class Entity(open val id: String,

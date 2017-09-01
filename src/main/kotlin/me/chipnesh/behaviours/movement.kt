@@ -1,8 +1,11 @@
+package me.chipnesh.behaviours
+
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.channels.actor
+import me.chipnesh.EntityPosition
 
-class MoveActor(private val printActor: PrintActor,
-                private val collisionActor: CollisionActor) : ActorModel<MoveCommand>() {
+class MoveActor(private val printRef: ActorReference<PrintCommand>,
+                private val collisionRef: ActorReference<CollisionCommand>) : ActorReference<MoveCommand>() {
 
     override val actor = actor<MoveCommand>(CommonPool) {
         val positionsState = mutableMapOf<String, EntityPosition>()
@@ -19,17 +22,19 @@ class MoveActor(private val printActor: PrintActor,
     }
 
     private suspend fun changePosition(positions: MutableMap<String, EntityPosition>, direction: Direction) {
-        positions.compute(direction.command.entityId) { _, oldPosition ->
-            oldPosition?.let {
-                moveTo(direction, it)
-            }
-        }?.let {
-            printActor.send(PrintCommand(
-                    "moved $it for ${direction.command.steps} steps to ${direction.command.javaClass.simpleName}"
+        val updatedPosition = updatePosition(positions, direction)
+        updatedPosition?.let {
+            printRef.send(PrintCommand(
+                    "moved from $updatedPosition " +
+                            "for ${direction.command.steps} steps " +
+                            "to ${direction.command.javaClass.simpleName}"
             ))
-            collisionActor.send(CollisionCommand.ChangePosition(it))
+            collisionRef.send(CollisionCommand.ChangePosition(updatedPosition))
         }
     }
+
+    private fun updatePosition(positions: MutableMap<String, EntityPosition>, direction: Direction) =
+            positions.compute(direction.command.entityId) { _, old -> old?.let { moveTo(direction, it) } }
 
     private fun moveTo(direction: Direction, old: EntityPosition): EntityPosition = when (direction) {
         is Direction.Left -> old.copy(id = direction.command.entityId, x = old.x - direction.command.steps)
