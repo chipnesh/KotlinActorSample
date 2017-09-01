@@ -1,18 +1,21 @@
-data class EntityPosition(val name: String, val x: Int, val y: Int)
+data class EntityPosition(val id: String, val x: Int, val y: Int)
 
-sealed class Entity(private val id: String, private val position: EntityPosition) {
+sealed class Entity(open val id: String,
+                    val position: EntityPosition) {
 
     data class Rabbit(
-            private val id: String,
+            override val id: String,
             private val gender: Gender,
-            private val position: EntityPosition = EntityPosition(id, 0, 0)
-    ) : Entity(id, position)
+            val x: Int = 0,
+            val y: Int = 0
+    ) : Entity(id, EntityPosition(id, x, y))
 
     data class Wolf(
-            private val id: String,
+            override val id: String,
             private val gender: Gender,
-            private val position: EntityPosition = EntityPosition(id, 0, 0)
-    ) : Entity(id, position)
+            val x: Int = 0,
+            val y: Int = 0
+    ) : Entity(id, EntityPosition(id, x, y))
 
     fun left(steps: Int) = MoveCommand.Left(id, steps)
     fun right(steps: Int) = MoveCommand.Right(id, steps)

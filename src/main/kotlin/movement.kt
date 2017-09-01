@@ -1,43 +1,41 @@
 import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.channels.actor
-import kotlinx.coroutines.experimental.channels.consumeEach
 
-class MoveActor : ActorModel<MoveCommand, EntityPosition> {
+class MoveActor(private val printActor: PrintActor,
+                private val collisionActor: CollisionActor) : ActorModel<MoveCommand>() {
 
-    private val response = Channel<EntityPosition>()
-
-    private val actor = actor<MoveCommand>(CommonPool) {
+    override val actor = actor<MoveCommand>(CommonPool) {
         val positionsState = mutableMapOf<String, EntityPosition>()
         for (command in channel) {
             when (command) {
-                is MoveCommand.Left -> respond(changePosition(positionsState, Direction.Left(command)))
-                is MoveCommand.Right -> respond(changePosition(positionsState, Direction.Right(command)))
-                is MoveCommand.Up -> respond(changePosition(positionsState, Direction.Up(command)))
-                is MoveCommand.Down -> respond(changePosition(positionsState, Direction.Down(command)))
+                is MoveCommand.Left -> changePosition(positionsState, Direction.Left(command))
+                is MoveCommand.Right -> changePosition(positionsState, Direction.Right(command))
+                is MoveCommand.Up -> changePosition(positionsState, Direction.Up(command))
+                is MoveCommand.Down -> changePosition(positionsState, Direction.Down(command))
+                is MoveCommand.AddPosition -> positionsState.put(command.entityId, command.position)
+                is MoveCommand.DeletePosition -> positionsState.remove(command.entityId)
             }
         }
     }
 
-    private fun respond(position: EntityPosition) = async(CommonPool) { response.send(position) }
-
-    suspend override fun consume(block: (EntityPosition) -> Unit) = response.consumeEach(block)
-
-    override suspend fun send(command: MoveCommand) = actor.send(command)
-
-    override suspend fun join() = actor.join()
-
-    private fun changePosition(positions: MutableMap<String, EntityPosition>, direction: Direction) =
-            positions.computeIfPresent(direction.command.animalName) { _, oldPosition ->
-                moveTo(direction, oldPosition)
-            } ?: moveTo(direction, EntityPosition(direction.command.animalName, 0, 0))
+    private suspend fun changePosition(positions: MutableMap<String, EntityPosition>, direction: Direction) {
+        positions.compute(direction.command.entityId) { _, oldPosition ->
+            oldPosition?.let {
+                moveTo(direction, it)
+            }
+        }?.let {
+            printActor.send(PrintCommand(
+                    "moved $it for ${direction.command.steps} steps to ${direction.command.javaClass.simpleName}"
+            ))
+            collisionActor.send(CollisionCommand.ChangePosition(it))
+        }
+    }
 
     private fun moveTo(direction: Direction, old: EntityPosition): EntityPosition = when (direction) {
-        is Direction.Left -> old.copy(name = direction.command.animalName, x = -direction.command.steps, y = 0)
-        is Direction.Right -> old.copy(name = direction.command.animalName, x = direction.command.steps, y = 0)
-        is Direction.Up -> old.copy(name = direction.command.animalName, x = 0, y = direction.command.steps)
-        is Direction.Down -> old.copy(name = direction.command.animalName, x = 0, y = -direction.command.steps)
+        is Direction.Left -> old.copy(id = direction.command.entityId, x = old.x - direction.command.steps)
+        is Direction.Right -> old.copy(id = direction.command.entityId, x = old.x + direction.command.steps)
+        is Direction.Up -> old.copy(id = direction.command.entityId, y = old.y + direction.command.steps)
+        is Direction.Down -> old.copy(id = direction.command.entityId, y = old.y - direction.command.steps)
     }
 }
 
@@ -48,10 +46,12 @@ private sealed class Direction(val command: MoveCommand) {
     class Down(command: MoveCommand) : Direction(command)
 }
 
-sealed class MoveCommand(val animalName: String,
+sealed class MoveCommand(val entityId: String,
                          val steps: Int) {
-    class Left(name: String, steps: Int) : MoveCommand(name, steps)
-    class Right(name: String, steps: Int) : MoveCommand(name, steps)
-    class Up(name: String, steps: Int) : MoveCommand(name, steps)
-    class Down(name: String, steps: Int) : MoveCommand(name, steps)
+    class Left(entityId: String, steps: Int) : MoveCommand(entityId, steps)
+    class Right(entityId: String, steps: Int) : MoveCommand(entityId, steps)
+    class Up(entityId: String, steps: Int) : MoveCommand(entityId, steps)
+    class Down(entityId: String, steps: Int) : MoveCommand(entityId, steps)
+    class AddPosition(val position: EntityPosition) : MoveCommand(position.id, 0)
+    class DeletePosition(val position: EntityPosition) : MoveCommand(position.id, 0)
 }
