@@ -7,6 +7,7 @@ val fieldSize = 10
 val stepSize = 1
 val rabbitCount = 5
 val wolfCount = 5
+val moveEveryMillisecond = 500L
 
 val printRef = PrintActor()
 val spawnRef = SpawnActor()

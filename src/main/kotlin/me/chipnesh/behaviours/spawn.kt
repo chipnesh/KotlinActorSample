@@ -33,7 +33,7 @@ class SpawnActor : ActorReference<SpawnCommand>() {
         async(CommonPool) {
             while (true) {
                 randomMoveRef.send(RandomMoveCommand(entity))
-                delay(5, TimeUnit.SECONDS)
+                delay(moveEveryMillisecond)
             }
         }
     }
