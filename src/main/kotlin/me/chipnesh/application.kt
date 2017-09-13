@@ -21,7 +21,7 @@ fun main(args: Array<String>) = runBlocking {
         spawn(index, SpawnCommand.SpawnRabbit())
     }
     (1..wolfCount).forEachIndexed { index, _ ->
-        spawn(index, SpawnCommand.SpawnRabbit())
+        spawn(index, SpawnCommand.SpawnWolf())
     }
     printRef.join()
 }
