@@ -1,29 +1,34 @@
 package me.chipnesh
 
-import me.chipnesh.Entity.Rabbit
-import me.chipnesh.Entity.Wolf
-import me.chipnesh.Gender.Female
-import me.chipnesh.Gender.Male
-import me.chipnesh.behaviours.CollisionActor
-import me.chipnesh.behaviours.MoveActor
-import me.chipnesh.behaviours.PositionCommand.EntityPlaced
-import me.chipnesh.behaviours.PositionActor
 import kotlinx.coroutines.experimental.runBlocking
-import me.chipnesh.behaviours.PrintActor
-import java.util.UUID.randomUUID
+import me.chipnesh.behaviours.*
+
+val fieldSize = 10
+val stepSize = 1
+val rabbitCount = 5
+val wolfCount = 5
+
+val printRef = PrintActor()
+val spawnRef = SpawnActor()
+val positionRef = PositionActor()
+val eatRef = EatActor()
+val collisionRef = CollisionActor()
+val moveRef = MoveActor()
+val randomMoveRef = RandomMoveActor()
 
 fun main(args: Array<String>) = runBlocking {
-
-    val rabbit = Rabbit(randomUUID().toString(), Male(), 5, 5)
-    val wolf = Wolf(randomUUID().toString(), Female(), 15, 15)
-
-    val printRef = PrintActor()
-    val collisionRef = CollisionActor(printRef)
-    val moveRef = MoveActor(printRef, collisionRef)
-    val positionRef = PositionActor(moveRef, collisionRef)
-
-    positionRef.send(EntityPlaced(rabbit))
-    positionRef.send(EntityPlaced(wolf))
-
+    (1..rabbitCount).forEachIndexed { index, _ ->
+        spawn(index, SpawnCommand.SpawnRabbit())
+    }
+    (1..wolfCount).forEachIndexed { index, _ ->
+        spawn(index, SpawnCommand.SpawnRabbit())
+    }
     printRef.join()
 }
+
+private suspend fun spawn(index: Int, spawnCommand: SpawnCommand) {
+    spawnCommand.gender = if (index.isEven()) Gender.Female() else Gender.Male()
+    spawnRef.send(spawnCommand)
+}
+
+private fun Int.isEven() = this and 1 == 0

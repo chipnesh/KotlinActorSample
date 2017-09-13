@@ -1,4 +1,4 @@
-package me.chipnesh.behaviours
+package me.chipnesh
 
 import kotlinx.coroutines.experimental.channels.ActorJob
 

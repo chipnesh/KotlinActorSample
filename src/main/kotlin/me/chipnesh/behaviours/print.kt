@@ -2,6 +2,7 @@ package me.chipnesh.behaviours
 
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.channels.actor
+import me.chipnesh.ActorReference
 
 class PrintActor : ActorReference<PrintCommand>() {
     override val actor = actor<PrintCommand>(CommonPool) {

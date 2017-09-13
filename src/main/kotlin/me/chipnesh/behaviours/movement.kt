@@ -2,45 +2,51 @@ package me.chipnesh.behaviours
 
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.channels.actor
-import me.chipnesh.EntityPosition
+import me.chipnesh.*
 
-class MoveActor(private val printRef: ActorReference<PrintCommand>,
-                private val collisionRef: ActorReference<CollisionCommand>) : ActorReference<MoveCommand>() {
+class MoveActor : ActorReference<MoveCommand>() {
 
     override val actor = actor<MoveCommand>(CommonPool) {
-        val positionsState = mutableMapOf<String, EntityPosition>()
+        val entities = mutableMapOf<String, Entity>()
         for (command in channel) {
             when (command) {
-                is MoveCommand.Left -> changePosition(positionsState, Direction.Left(command))
-                is MoveCommand.Right -> changePosition(positionsState, Direction.Right(command))
-                is MoveCommand.Up -> changePosition(positionsState, Direction.Up(command))
-                is MoveCommand.Down -> changePosition(positionsState, Direction.Down(command))
-                is MoveCommand.AddPosition -> positionsState.put(command.entityId, command.position)
-                is MoveCommand.DeletePosition -> positionsState.remove(command.entityId)
+                is MoveCommand.Left -> changePosition(entities, Direction.Left(command))
+                is MoveCommand.Right -> changePosition(entities, Direction.Right(command))
+                is MoveCommand.Up -> changePosition(entities, Direction.Up(command))
+                is MoveCommand.Down -> changePosition(entities, Direction.Down(command))
+
+                is MoveCommand.StoreEntity -> entities.put(command.entity.id, command.entity)
+                is MoveCommand.DeleteEntity -> entities.remove(command.entity.id)
             }
         }
     }
 
-    private suspend fun changePosition(positions: MutableMap<String, EntityPosition>, direction: Direction) {
-        val updatedPosition = updatePosition(positions, direction)
-        updatedPosition?.let {
-            printRef.send(PrintCommand(
-                    "moved from $updatedPosition " +
-                            "for ${direction.command.steps} steps " +
-                            "to ${direction.command.javaClass.simpleName}"
-            ))
-            collisionRef.send(CollisionCommand.ChangePosition(updatedPosition))
+    private suspend fun changePosition(entities: MutableMap<String, Entity>, direction: Direction) {
+        updatePosition(entities, direction)?.let {
+            collisionRef.send(CollisionCommand.CheckCollision(it))
         }
     }
 
-    private fun updatePosition(positions: MutableMap<String, EntityPosition>, direction: Direction) =
-            positions.compute(direction.command.entityId) { _, old -> old?.let { moveTo(direction, it) } }
+    private fun updatePosition(entities: MutableMap<String, Entity>, direction: Direction) =
+            entities.compute(direction.command.entityId) { _, old -> old?.let {
+                val position = moveTo(direction, it)
+                when (it) {
+                    is Entity.Rabbit -> Entity.Rabbit(it.id, it.gender, position.x, position.y)
+                    is Entity.Wolf -> Entity.Wolf(it.id, it.gender, position.x, position.y)
+                }
+            } }
 
-    private fun moveTo(direction: Direction, old: EntityPosition): EntityPosition = when (direction) {
-        is Direction.Left -> old.copy(id = direction.command.entityId, x = old.x - direction.command.steps)
-        is Direction.Right -> old.copy(id = direction.command.entityId, x = old.x + direction.command.steps)
-        is Direction.Up -> old.copy(id = direction.command.entityId, y = old.y + direction.command.steps)
-        is Direction.Down -> old.copy(id = direction.command.entityId, y = old.y - direction.command.steps)
+    private fun moveTo(direction: Direction, old: Entity): EntityPosition = when (direction) {
+        is Direction.Left -> old.position.copy(id = direction.command.entityId, x = checkBound(old.position.x, old.position.x - direction.command.steps))
+        is Direction.Right -> old.position.copy(id = direction.command.entityId, x = checkBound(old.position.x, old.position.x + direction.command.steps))
+        is Direction.Up -> old.position.copy(id = direction.command.entityId, y = checkBound(old.position.y, old.position.y + direction.command.steps))
+        is Direction.Down -> old.position.copy(id = direction.command.entityId, y = checkBound(old.position.y, old.position.y - direction.command.steps))
+    }
+
+    private fun checkBound(oldPos: Int, newPos: Int): Int = when {
+        newPos > fieldSize -> oldPos - (newPos - oldPos)
+        newPos < 0 -> -newPos
+        else -> newPos
     }
 }
 
@@ -57,6 +63,6 @@ sealed class MoveCommand(val entityId: String,
     class Right(entityId: String, steps: Int) : MoveCommand(entityId, steps)
     class Up(entityId: String, steps: Int) : MoveCommand(entityId, steps)
     class Down(entityId: String, steps: Int) : MoveCommand(entityId, steps)
-    class AddPosition(val position: EntityPosition) : MoveCommand(position.id, 0)
-    class DeletePosition(val position: EntityPosition) : MoveCommand(position.id, 0)
+    class StoreEntity(val entity: Entity) : MoveCommand(entity.id, 0)
+    class DeleteEntity(val entity: Entity) : MoveCommand(entity.id, 0)
 }
